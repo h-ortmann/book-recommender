@@ -6,9 +6,9 @@ Milestone 2 app. A personal book library manager with two AI features:
 2. **Recommend** — describe your mood/context, Claude picks the best match from your library (unread or re-reads)
 
 ## Live URLs
-- **Frontend**: (to be added after deployment)
-- **Backend**: (to be added after deployment)
-- **GitHub**: (to be added after deployment)
+- **Frontend**: https://book-recommender-henna.vercel.app
+- **Backend**: https://book-recommender-production-4343.up.railway.app
+- **GitHub**: https://github.com/h-ortmann/book-recommender
 
 ## What's been built
 
@@ -121,8 +121,6 @@ FLASK_APP=server flask db upgrade
 ```
 
 ## Deployment setup
-*(to be filled in after deployment)*
-
 **Railway (backend)**
 - Root directory: `backend`
 - Start command: `flask db upgrade && gunicorn server:app`
