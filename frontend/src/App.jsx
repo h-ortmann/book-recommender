@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { ChevronDown, ChevronUp } from "lucide-react"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000"
 
@@ -26,6 +27,9 @@ export default function App() {
   const [recommendContext, setRecommendContext] = useState("")
   const [recommendLoading, setRecommendLoading] = useState(false)
   const [recommendation, setRecommendation] = useState(null)
+  const [excludedIds, setExcludedIds] = useState([])
+  const [groupBy, setGroupBy] = useState("none")
+  const [readSectionOpen, setReadSectionOpen] = useState(false)
 
   useEffect(() => {
     fetchBooks()
@@ -86,7 +90,7 @@ export default function App() {
     fetchBooks()
   }
 
-  async function handleRecommend() {
+  async function handleRecommend(excluded = []) {
     if (!recommendContext) return
     setRecommendLoading(true)
     setRecommendation(null)
@@ -94,13 +98,56 @@ export default function App() {
       const res = await fetch(`${API_URL}/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context: recommendContext }),
+        body: JSON.stringify({ context: recommendContext, exclude_ids: excluded }),
       })
       const data = await res.json()
       setRecommendation(data)
     } finally {
       setRecommendLoading(false)
     }
+  }
+
+  async function handleSuggestAnother() {
+    const newExcluded = [...excludedIds, recommendation.book_id]
+    setExcludedIds(newExcluded)
+    await handleRecommend(newExcluded)
+  }
+
+  async function handleMarkRead(id) {
+    await fetch(`${API_URL}/books/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ read_status: "read" }),
+    })
+    fetchBooks()
+  }
+
+  async function handleLetsReadThat() {
+    await fetch(`${API_URL}/books/${recommendation.book_id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ read_status: "reading" }),
+    })
+    setRecommendation(null)
+    setExcludedIds([])
+    fetchBooks()
+  }
+
+  function getGroupedBooks(bookList) {
+    if (groupBy === "none") return { "": bookList }
+    return bookList.reduce((acc, book) => {
+      const key =
+        groupBy === "genre"
+          ? book.genre || "Unknown"
+          : book.format === "ebook"
+          ? "E-book"
+          : book.format === "physical"
+          ? "Physical"
+          : "Other"
+      if (!acc[key]) acc[key] = []
+      acc[key].push(book)
+      return acc
+    }, {})
   }
 
   return (
@@ -139,45 +186,45 @@ export default function App() {
             </div>
 
             {metadataVisible && (
-              <div className="space-y-2 pt-2 border-t">
-                <Input
-                  placeholder="Genre"
-                  value={genre}
-                  onChange={(e) => setGenre(e.target.value)}
-                />
-                <Input
-                  placeholder="Tropes (comma-separated)"
-                  value={tropes}
-                  onChange={(e) => setTropes(e.target.value)}
-                />
-                <Input
-                  placeholder="Mood (comma-separated)"
-                  value={mood}
-                  onChange={(e) => setMood(e.target.value)}
-                />
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Page count"
-                    value={pageCount}
-                    onChange={(e) => setPageCount(e.target.value)}
-                    type="number"
-                    className="w-32"
-                  />
-                  <select
-                    value={format}
-                    onChange={(e) => setFormat(e.target.value)}
-                    className="flex-1 border border-input rounded-md px-3 py-2 text-sm bg-background"
-                  >
-                    <option value="physical">Physical</option>
-                    <option value="ebook">E-book</option>
-                  </select>
+              <div className="space-y-3 pt-2 border-t">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Genre</p>
+                  <Input value={genre} onChange={(e) => setGenre(e.target.value)} />
                 </div>
-                <Textarea
-                  placeholder="Description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Tropes</p>
+                  <Input placeholder="comma-separated" value={tropes} onChange={(e) => setTropes(e.target.value)} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Mood</p>
+                  <Input placeholder="comma-separated" value={mood} onChange={(e) => setMood(e.target.value)} />
+                </div>
+                <div className="flex gap-2">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Page count</p>
+                    <Input
+                      value={pageCount}
+                      onChange={(e) => setPageCount(e.target.value)}
+                      type="number"
+                      className="w-32"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Format</p>
+                    <select
+                      value={format}
+                      onChange={(e) => setFormat(e.target.value)}
+                      className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+                    >
+                      <option value="physical">Physical</option>
+                      <option value="ebook">E-book</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                  <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+                </div>
               </div>
             )}
 
@@ -197,24 +244,42 @@ export default function App() {
           <Input
             placeholder="e.g. I'm travelling and want something light and fun"
             value={recommendContext}
-            onChange={(e) => setRecommendContext(e.target.value)}
+            onChange={(e) => { setRecommendContext(e.target.value); setExcludedIds([]); setRecommendation(null) }}
           />
           <Button
-            onClick={handleRecommend}
+            onClick={() => handleRecommend(excludedIds)}
             disabled={recommendLoading || !recommendContext || books.length === 0}
             className="w-full"
           >
             {recommendLoading ? "Thinking…" : "Recommend something ✦"}
           </Button>
           {recommendation && !recommendation.error && (
-            <div className="pt-2 border-t space-y-1">
+            <div className="pt-2 border-t space-y-2">
               <p className="font-semibold">
                 {recommendation.title}{" "}
                 <span className="font-normal text-muted-foreground">
                   by {recommendation.author}
                 </span>
               </p>
+              {(() => {
+                const tropes = books.find((b) => b.id === recommendation.book_id)?.tropes
+                return tropes?.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {tropes.map((t) => (
+                      <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                    ))}
+                  </div>
+                ) : null
+              })()}
               <p className="text-sm text-muted-foreground">{recommendation.reason}</p>
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleLetsReadThat} className="flex-1">
+                  Let's read that!
+                </Button>
+                <Button onClick={handleSuggestAnother} variant="outline" className="flex-1" disabled={recommendLoading}>
+                  Suggest another
+                </Button>
+              </div>
             </div>
           )}
           {recommendation?.error && (
@@ -224,64 +289,149 @@ export default function App() {
       </Card>
 
       {/* Library */}
+      {(() => {
+        const unread = books.filter((b) => b.read_status !== "read")
+        const read = books.filter((b) => b.read_status === "read")
+        return (
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">
-          Library{" "}
-          <span className="text-muted-foreground font-normal text-base">
-            ({books.length} books)
-          </span>
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            Library{" "}
+            <span className="text-muted-foreground font-normal text-base">
+              ({unread.length} books)
+            </span>
+          </h2>
+          <div className="flex gap-1">
+            {["none", "genre", "format"].map((option) => (
+              <Button
+                key={option}
+                size="sm"
+                variant={groupBy === option ? "default" : "outline"}
+                onClick={() => setGroupBy(option)}
+                className="text-xs capitalize"
+              >
+                {option === "none" ? "All" : option}
+              </Button>
+            ))}
+          </div>
+        </div>
 
-        {books.length === 0 ? (
+        {unread.length === 0 ? (
           <p className="text-muted-foreground text-sm">No books yet — add one above.</p>
         ) : (
-          books.map((book) => (
-            <Card key={book.id}>
-              <CardContent className="pt-4">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="space-y-1 min-w-0">
-                    <p className="font-medium leading-snug">{book.title}</p>
-                    <p className="text-sm text-muted-foreground">{book.author}</p>
-                    {(book.genre || book.page_count) && (
-                      <p className="text-xs text-muted-foreground">
-                        {[
-                          book.genre,
-                          book.page_count ? `${book.page_count} pages` : null,
-                          book.format,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                    )}
-                    {book.tropes?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {book.tropes.map((t) => (
-                          <Badge key={t} variant="secondary" className="text-xs">
-                            {t}
-                          </Badge>
-                        ))}
+          Object.entries(getGroupedBooks(unread)).map(([groupName, groupBooks]) => (
+            <div key={groupName} className="space-y-2">
+              {groupBy !== "none" && (
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">
+                  {groupName}
+                </p>
+              )}
+              {groupBooks.map((book) => (
+                <Card key={book.id}>
+                  <CardContent className="pt-4">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium leading-snug">{book.title}</p>
+                          {book.read_status === "reading" && (
+                            <Badge className="text-xs shrink-0">Reading</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{book.author}</p>
+                        {(book.genre || book.page_count) && (
+                          <p className="text-xs text-muted-foreground">
+                            {[
+                              book.genre,
+                              book.page_count ? `${book.page_count} pages` : null,
+                              book.format,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
+                        {book.tropes?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {book.tropes.map((t) => (
+                              <Badge key={t} variant="secondary" className="text-xs">
+                                {t}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {book.description && (
+                          <p className="text-xs text-muted-foreground pt-1 line-clamp-2">
+                            {book.description}
+                          </p>
+                        )}
                       </div>
-                    )}
-                    {book.description && (
-                      <p className="text-xs text-muted-foreground pt-1 line-clamp-2">
-                        {book.description}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(book.id)}
-                    className="shrink-0"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        {book.read_status !== "read" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkRead(book.id)}
+                          >
+                            Read
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(book.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ))
         )}
+
+        {/* Already read — collapsible */}
+        {read.length > 0 && (
+          <div className="pt-4 border-t">
+            <button
+              onClick={() => setReadSectionOpen((o) => !o)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+            >
+              {readSectionOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              Already read ({read.length})
+            </button>
+            {readSectionOpen && (
+              <div className="space-y-2 mt-3">
+                {read.map((book) => (
+                  <Card key={book.id}>
+                    <CardContent className="pt-4">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="space-y-0.5 min-w-0">
+                          <p className="font-medium leading-snug">{book.title}</p>
+                          <p className="text-sm text-muted-foreground">{book.author}</p>
+                          {book.genre && (
+                            <p className="text-xs text-muted-foreground">{book.genre}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(book.id)}
+                          className="shrink-0"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+        )
+      })()}
     </div>
   )
 }

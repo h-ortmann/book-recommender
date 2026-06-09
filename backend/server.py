@@ -84,6 +84,18 @@ def add_book():
     return jsonify(book.to_dict()), 201
 
 
+@app.route("/books/<int:id>", methods=["PATCH"])
+def update_book_status(id):
+    book = db.session.get(Book, id)
+    if book is None:
+        return jsonify({"error": "Book not found"}), 404
+    data = request.get_json()
+    if "read_status" in data:
+        book.read_status = data["read_status"]
+    db.session.commit()
+    return jsonify(book.to_dict())
+
+
 @app.route("/books/<int:id>", methods=["DELETE"])
 def delete_book(id):
     book = db.session.get(Book, id)
@@ -129,18 +141,23 @@ Return only the JSON object. No explanation, no markdown code blocks.""",
 def recommend():
     data = request.get_json()
     context = data.get("context", "")
+    exclude_ids = data.get("exclude_ids", [])
 
-    unread = Book.query.filter_by(read_status="want_to_read").all()
-    if not unread:
-        return jsonify({"error": "No unread books in your library yet."}), 400
+    query = Book.query
+    if exclude_ids:
+        query = query.filter(~Book.id.in_(exclude_ids))
+    all_books = query.all()
+    if not all_books:
+        return jsonify({"error": "No books in your library yet."}), 400
 
     library_lines = []
-    for book in unread:
+    for book in all_books:
         b = book.to_dict()
         tropes_str = ", ".join(b["tropes"]) if b["tropes"] else "none listed"
         mood_str = ", ".join(b["mood"]) if b["mood"] else "none listed"
+        status_label = {"want_to_read": "unread", "reading": "currently reading", "read": "already read"}.get(b["read_status"], b["read_status"])
         library_lines.append(
-            f"ID {b['id']}: {b['title']} by {b['author']} | Genre: {b['genre'] or 'unknown'} | Tropes: {tropes_str} | Mood: {mood_str}"
+            f"ID {b['id']}: {b['title']} by {b['author']} | Status: {status_label} | Genre: {b['genre'] or 'unknown'} | Tropes: {tropes_str} | Mood: {mood_str}"
         )
     library_text = "\n".join(library_lines)
 
@@ -148,7 +165,8 @@ def recommend():
         model="claude-opus-4-8",
         max_tokens=1024,
         thinking={"type": "adaptive"},
-        system="""You are a personal book recommender. Given a user's mood/context and their library of unread books, pick the single best match.
+        system="""You are a personal book recommender. The user has a library with books at different stages: unread, currently reading, and already read.
+Pick the single best book based on the user's context — if they mention wanting a re-read, pick from already read books; otherwise default to unread books.
 Return a JSON object with exactly these fields:
 - book_id: integer (the ID of the recommended book)
 - title: string
