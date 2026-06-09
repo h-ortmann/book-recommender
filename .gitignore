@@ -1,0 +1,18 @@
+# Python
+backend/venv/
+**/__pycache__/
+backend/instance/
+
+# Database
+*.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Local env files
+**/.env
+**/.env.local
+
+# Editor
+.DS_Store
