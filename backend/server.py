@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -195,22 +195,59 @@ Return a JSON object with exactly these fields:
 - book_id: integer (the ID of the recommended book)
 - title: string
 - author: string
-- reason: string (2-3 sentences explaining why this book fits their mood and context right now)
 
 Return only the JSON object. No explanation, no markdown code blocks.""",
         messages=[{
             "role": "user",
-            "content": f"My reading context: {context}\n\nMy unread books:\n{library_text}"
+            "content": f"My reading context: {context}\n\nMy library:\n{library_text}"
         }],
     )
 
     try:
-        # With adaptive thinking enabled, there may be a thinking block before the text block
         text_block = next(b for b in response.content if b.type == "text")
         recommendation = json.loads(text_block.text)
         return jsonify(recommendation)
     except (json.JSONDecodeError, StopIteration):
         return jsonify({"error": "Could not generate a recommendation"}), 500
+
+
+# --- AI: stream the reason for a recommendation ---
+
+@app.route("/recommend-reason", methods=["POST"])
+def recommend_reason():
+    data = request.get_json()
+    title = data.get("title", "")
+    author = data.get("author", "")
+    genre = data.get("genre", "unknown")
+    tropes = data.get("tropes", [])
+    mood = data.get("mood", [])
+    context = data.get("context", "")
+
+    tropes_str = ", ".join(tropes) if tropes else "none listed"
+    mood_str = ", ".join(mood) if mood else "none listed"
+
+    def generate():
+        with claude.messages.stream(
+            model="claude-opus-4-8",
+            max_tokens=300,
+            messages=[{
+                "role": "user",
+                "content": f"""Write 2-3 warm sentences explaining why "{title}" by {author} is the perfect pick for this reader right now.
+
+Reader's context: {context}
+Book details: Genre: {genre} | Tropes: {tropes_str} | Mood: {mood_str}
+
+Be specific and personal. Reference their mood and the book's qualities. No intro phrase like "This book" — jump straight into the reason."""
+            }]
+        ) as stream:
+            for text in stream.text_stream:
+                yield text
+
+    return Response(
+        stream_with_context(generate()),
+        content_type="text/plain",
+        headers={"X-Accel-Buffering": "no"}
+    )
 
 
 if __name__ == "__main__":

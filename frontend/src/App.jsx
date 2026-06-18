@@ -27,6 +27,7 @@ export default function App() {
   const [recommendContext, setRecommendContext] = useState("")
   const [recommendLoading, setRecommendLoading] = useState(false)
   const [recommendation, setRecommendation] = useState(null)
+  const [streamingReason, setStreamingReason] = useState("")
   const [excludedIds, setExcludedIds] = useState([])
   const [groupBy, setGroupBy] = useState("none")
   const [librarySectionOpen, setLibrarySectionOpen] = useState(true)
@@ -103,14 +104,44 @@ export default function App() {
     if (!recommendContext) return
     setRecommendLoading(true)
     setRecommendation(null)
+    setStreamingReason("")
     try {
+      // Step 1: get the pick (book_id, title, author) — fast, with adaptive thinking
       const res = await fetch(`${API_URL}/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ context: recommendContext, exclude_ids: excluded }),
       })
-      const data = await res.json()
-      setRecommendation(data)
+      const pick = await res.json()
+      if (pick.error) { setRecommendation(pick); return }
+
+      setRecommendation(pick)
+      setRecommendLoading(false)
+
+      // Step 2: stream the reason
+      const bookDetails = books.find((b) => b.id === pick.book_id)
+      const reasonRes = await fetch(`${API_URL}/recommend-reason`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: pick.title,
+          author: pick.author,
+          genre: bookDetails?.genre || "",
+          tropes: bookDetails?.tropes || [],
+          mood: bookDetails?.mood || [],
+          context: recommendContext,
+        }),
+      })
+
+      const reader = reasonRes.body.getReader()
+      const decoder = new TextDecoder()
+      let reason = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        reason += decoder.decode(value, { stream: true })
+        setStreamingReason(reason)
+      }
     } finally {
       setRecommendLoading(false)
     }
@@ -119,6 +150,7 @@ export default function App() {
   async function handleSuggestAnother() {
     const newExcluded = [...excludedIds, recommendation.book_id]
     setExcludedIds(newExcluded)
+    setStreamingReason("")
     await handleRecommend(newExcluded)
   }
 
@@ -415,7 +447,9 @@ export default function App() {
                   </div>
                 ) : null
               })()}
-              <p className="text-sm text-muted-foreground">{recommendation.reason}</p>
+              <p className="text-sm text-muted-foreground">
+                {streamingReason || "Finding out why…"}
+              </p>
               <div className="flex gap-2 pt-1">
                 <Button onClick={handleLetsReadThat} className="flex-1">
                   Let's read that!
