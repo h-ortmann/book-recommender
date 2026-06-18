@@ -29,7 +29,16 @@ export default function App() {
   const [recommendation, setRecommendation] = useState(null)
   const [excludedIds, setExcludedIds] = useState([])
   const [groupBy, setGroupBy] = useState("none")
+  const [librarySectionOpen, setLibrarySectionOpen] = useState(true)
   const [readSectionOpen, setReadSectionOpen] = useState(false)
+
+  // Edit state
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({})
+
+  // Search state
+  const [librarySearch, setLibrarySearch] = useState("")
+  const [readSearch, setReadSearch] = useState("")
 
   useEffect(() => {
     fetchBooks()
@@ -122,6 +131,58 @@ export default function App() {
     fetchBooks()
   }
 
+  async function handleMoveToWantToRead(id) {
+    await fetch(`${API_URL}/books/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ read_status: "want_to_read" }),
+    })
+    fetchBooks()
+  }
+
+  function handleEditStart(book) {
+    setEditingId(book.id)
+    setEditForm({
+      title: book.title,
+      author: book.author,
+      genre: book.genre || "",
+      tropes: book.tropes?.join(", ") || "",
+      mood: book.mood?.join(", ") || "",
+      page_count: book.page_count ? String(book.page_count) : "",
+      description: book.description || "",
+      format: book.format || "physical",
+      rating: book.rating || null,
+      notes: book.notes || "",
+    })
+  }
+
+  function handleEditCancel() {
+    setEditingId(null)
+    setEditForm({})
+  }
+
+  async function handleEditSave(id) {
+    await fetch(`${API_URL}/books/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: editForm.title,
+        author: editForm.author,
+        genre: editForm.genre,
+        tropes: editForm.tropes.split(",").map((s) => s.trim()).filter(Boolean),
+        mood: editForm.mood.split(",").map((s) => s.trim()).filter(Boolean),
+        page_count: editForm.page_count ? parseInt(editForm.page_count) : null,
+        description: editForm.description,
+        format: editForm.format,
+        rating: editForm.rating,
+        notes: editForm.notes,
+      }),
+    })
+    setEditingId(null)
+    setEditForm({})
+    fetchBooks()
+  }
+
   async function handleLetsReadThat() {
     await fetch(`${API_URL}/books/${recommendation.book_id}`, {
       method: "PATCH",
@@ -149,6 +210,89 @@ export default function App() {
       return acc
     }, {})
   }
+
+  function renderEditForm(bookId) {
+    return (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Title</p>
+            <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Author</p>
+            <Input value={editForm.author} onChange={(e) => setEditForm({ ...editForm, author: e.target.value })} />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Genre</p>
+          <Input value={editForm.genre} onChange={(e) => setEditForm({ ...editForm, genre: e.target.value })} />
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Tropes</p>
+          <Input placeholder="comma-separated" value={editForm.tropes} onChange={(e) => setEditForm({ ...editForm, tropes: e.target.value })} />
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Mood</p>
+          <Input placeholder="comma-separated" value={editForm.mood} onChange={(e) => setEditForm({ ...editForm, mood: e.target.value })} />
+        </div>
+        <div className="flex gap-2">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">Page count</p>
+            <Input type="number" className="w-32" value={editForm.page_count} onChange={(e) => setEditForm({ ...editForm, page_count: e.target.value })} />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Format</p>
+            <select
+              value={editForm.format}
+              onChange={(e) => setEditForm({ ...editForm, format: e.target.value })}
+              className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+            >
+              <option value="physical">Physical</option>
+              <option value="ebook">E-book</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+          <Textarea rows={2} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Rating</p>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setEditForm({ ...editForm, rating: editForm.rating === star ? null : star })}
+                className={`text-xl leading-none ${star <= (editForm.rating || 0) ? "text-yellow-400" : "text-muted-foreground"}`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
+          <Textarea rows={2} placeholder="Your thoughts on this book…" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={() => handleEditSave(bookId)} className="flex-1">Save</Button>
+          <Button size="sm" variant="outline" onClick={handleEditCancel} className="flex-1">Cancel</Button>
+        </div>
+      </div>
+    )
+  }
+
+  const currentlyReading = books.filter((b) => b.read_status === "reading")
+  const wantToRead = books.filter((b) => b.read_status === "want_to_read")
+  const allRead = books.filter((b) => b.read_status === "read")
+  const filteredWantToRead = librarySearch
+    ? wantToRead.filter((b) => b.title.toLowerCase().includes(librarySearch.toLowerCase()) || b.author.toLowerCase().includes(librarySearch.toLowerCase()))
+    : wantToRead
+  const filteredRead = readSearch
+    ? allRead.filter((b) => b.title.toLowerCase().includes(readSearch.toLowerCase()) || b.author.toLowerCase().includes(readSearch.toLowerCase()))
+    : allRead
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
@@ -288,38 +432,90 @@ export default function App() {
         </CardContent>
       </Card>
 
+      {/* Currently reading */}
+      {currentlyReading.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Currently reading</h2>
+          {currentlyReading.map((book) => (
+            <Card key={book.id}>
+              <CardContent className="pt-4">
+                {editingId === book.id ? renderEditForm(book.id) : (
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="space-y-1 min-w-0">
+                      <p className="font-medium leading-snug">{book.title}</p>
+                      <p className="text-sm text-muted-foreground">{book.author}</p>
+                      {(book.genre || book.page_count) && (
+                        <p className="text-xs text-muted-foreground">
+                          {[book.genre, book.page_count ? `${book.page_count} pages` : null, book.format].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      {book.tropes?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {book.tropes.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                        </div>
+                      )}
+                      {book.description && (
+                        <p className="text-xs text-muted-foreground pt-1 line-clamp-2">{book.description}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <Button size="sm" onClick={() => handleMarkRead(book.id)}>Finished</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleMoveToWantToRead(book.id)}>Not now</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleEditStart(book)}>Edit</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDelete(book.id)}>Delete</Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Library */}
-      {(() => {
-        const unread = books.filter((b) => b.read_status !== "read")
-        const read = books.filter((b) => b.read_status === "read")
-        return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
+          <button
+            onClick={() => setLibrarySectionOpen((o) => !o)}
+            className="flex items-center gap-2 text-lg font-semibold hover:text-muted-foreground transition-colors text-left"
+          >
+            {librarySectionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             Library{" "}
             <span className="text-muted-foreground font-normal text-base">
-              ({unread.length} books)
+              ({wantToRead.length} books)
             </span>
-          </h2>
-          <div className="flex gap-1">
-            {["none", "genre", "format"].map((option) => (
-              <Button
-                key={option}
-                size="sm"
-                variant={groupBy === option ? "default" : "outline"}
-                onClick={() => setGroupBy(option)}
-                className="text-xs capitalize"
-              >
-                {option === "none" ? "All" : option}
-              </Button>
-            ))}
-          </div>
+          </button>
+          {librarySectionOpen && (
+            <div className="flex gap-1">
+              {["none", "genre", "format"].map((option) => (
+                <Button
+                  key={option}
+                  size="sm"
+                  variant={groupBy === option ? "default" : "outline"}
+                  onClick={() => setGroupBy(option)}
+                  className="text-xs capitalize"
+                >
+                  {option === "none" ? "All" : option}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {unread.length === 0 ? (
+        {librarySectionOpen && (
+        <>
+        <Input
+          placeholder="Search by title or author…"
+          value={librarySearch}
+          onChange={(e) => setLibrarySearch(e.target.value)}
+        />
+
+        {wantToRead.length === 0 ? (
           <p className="text-muted-foreground text-sm">No books yet — add one above.</p>
+        ) : filteredWantToRead.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No books match your search.</p>
         ) : (
-          Object.entries(getGroupedBooks(unread)).map(([groupName, groupBooks]) => (
+          Object.entries(getGroupedBooks(filteredWantToRead)).map(([groupName, groupBooks]) => (
             <div key={groupName} className="space-y-2">
               {groupBy !== "none" && (
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">
@@ -329,60 +525,32 @@ export default function App() {
               {groupBooks.map((book) => (
                 <Card key={book.id}>
                   <CardContent className="pt-4">
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                    {editingId === book.id ? renderEditForm(book.id) : (
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="space-y-1 min-w-0">
                           <p className="font-medium leading-snug">{book.title}</p>
-                          {book.read_status === "reading" && (
-                            <Badge className="text-xs shrink-0">Reading</Badge>
+                          <p className="text-sm text-muted-foreground">{book.author}</p>
+                          {(book.genre || book.page_count) && (
+                            <p className="text-xs text-muted-foreground">
+                              {[book.genre, book.page_count ? `${book.page_count} pages` : null, book.format].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                          {book.tropes?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {book.tropes.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                            </div>
+                          )}
+                          {book.description && (
+                            <p className="text-xs text-muted-foreground pt-1 line-clamp-2">{book.description}</p>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">{book.author}</p>
-                        {(book.genre || book.page_count) && (
-                          <p className="text-xs text-muted-foreground">
-                            {[
-                              book.genre,
-                              book.page_count ? `${book.page_count} pages` : null,
-                              book.format,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                        )}
-                        {book.tropes?.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {book.tropes.map((t) => (
-                              <Badge key={t} variant="secondary" className="text-xs">
-                                {t}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        {book.description && (
-                          <p className="text-xs text-muted-foreground pt-1 line-clamp-2">
-                            {book.description}
-                          </p>
-                        )}
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => handleEditStart(book)}>Edit</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleMarkRead(book.id)}>Read</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDelete(book.id)}>Delete</Button>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-1 shrink-0">
-                        {book.read_status !== "read" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleMarkRead(book.id)}
-                          >
-                            Read
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(book.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -390,48 +558,64 @@ export default function App() {
           ))
         )}
 
+        </>
+        )}
+
         {/* Already read — collapsible */}
-        {read.length > 0 && (
+        {allRead.length > 0 && (
           <div className="pt-4 border-t">
             <button
               onClick={() => setReadSectionOpen((o) => !o)}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
             >
               {readSectionOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              Already read ({read.length})
+              Already read ({allRead.length})
             </button>
             {readSectionOpen && (
               <div className="space-y-2 mt-3">
-                {read.map((book) => (
-                  <Card key={book.id}>
-                    <CardContent className="pt-4">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="space-y-0.5 min-w-0">
-                          <p className="font-medium leading-snug">{book.title}</p>
-                          <p className="text-sm text-muted-foreground">{book.author}</p>
-                          {book.genre && (
-                            <p className="text-xs text-muted-foreground">{book.genre}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(book.id)}
-                          className="shrink-0"
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                <Input
+                  placeholder="Search by title or author…"
+                  value={readSearch}
+                  onChange={(e) => setReadSearch(e.target.value)}
+                />
+                {filteredRead.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No books match your search.</p>
+                ) : (
+                  filteredRead.map((book) => (
+                    <Card key={book.id}>
+                      <CardContent className="pt-4">
+                        {editingId === book.id ? renderEditForm(book.id) : (
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="space-y-0.5 min-w-0">
+                              <p className="font-medium leading-snug">{book.title}</p>
+                              <p className="text-sm text-muted-foreground">{book.author}</p>
+                              {book.genre && <p className="text-xs text-muted-foreground">{book.genre}</p>}
+                              {book.rating && (
+                                <p className="text-sm text-yellow-400 leading-none">
+                                  {"★".repeat(book.rating)}
+                                  <span className="text-muted-foreground">{"★".repeat(5 - book.rating)}</span>
+                                </p>
+                              )}
+                              {book.notes && (
+                                <p className="text-xs text-muted-foreground line-clamp-2 pt-0.5">{book.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <Button variant="outline" size="sm" onClick={() => handleMoveToWantToRead(book.id)}>Re-read</Button>
+                              <Button variant="outline" size="sm" onClick={() => handleEditStart(book)}>Edit</Button>
+                              <Button variant="outline" size="sm" onClick={() => handleDelete(book.id)}>Delete</Button>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             )}
           </div>
         )}
       </div>
-        )
-      })()}
     </div>
   )
 }

@@ -39,6 +39,8 @@ class Book(db.Model):
     description = db.Column(db.Text)
     format = db.Column(db.String(20))  # "physical" or "ebook"
     read_status = db.Column(db.String(20), default="want_to_read")
+    rating = db.Column(db.Integer)     # 1–5, optional
+    notes = db.Column(db.Text)
     date_added = db.Column(db.DateTime, default=datetime.datetime.now)
 
     def to_dict(self):
@@ -53,6 +55,8 @@ class Book(db.Model):
             "description": self.description,
             "format": self.format,
             "read_status": self.read_status,
+            "rating": self.rating,
+            "notes": self.notes,
             "date_added": self.date_added.isoformat() if self.date_added else None,
         }
 
@@ -85,13 +89,33 @@ def add_book():
 
 
 @app.route("/books/<int:id>", methods=["PATCH"])
-def update_book_status(id):
+def update_book(id):
     book = db.session.get(Book, id)
     if book is None:
         return jsonify({"error": "Book not found"}), 404
     data = request.get_json()
     if "read_status" in data:
         book.read_status = data["read_status"]
+    if "title" in data:
+        book.title = data["title"]
+    if "author" in data:
+        book.author = data["author"]
+    if "genre" in data:
+        book.genre = data["genre"]
+    if "tropes" in data:
+        book.tropes = json.dumps(data["tropes"])
+    if "mood" in data:
+        book.mood = json.dumps(data["mood"])
+    if "page_count" in data:
+        book.page_count = data["page_count"]
+    if "description" in data:
+        book.description = data["description"]
+    if "format" in data:
+        book.format = data["format"]
+    if "rating" in data:
+        book.rating = data["rating"]
+    if "notes" in data:
+        book.notes = data["notes"]
     db.session.commit()
     return jsonify(book.to_dict())
 
@@ -157,7 +181,7 @@ def recommend():
         mood_str = ", ".join(b["mood"]) if b["mood"] else "none listed"
         status_label = {"want_to_read": "unread", "reading": "currently reading", "read": "already read"}.get(b["read_status"], b["read_status"])
         library_lines.append(
-            f"ID {b['id']}: {b['title']} by {b['author']} | Status: {status_label} | Genre: {b['genre'] or 'unknown'} | Tropes: {tropes_str} | Mood: {mood_str}"
+            f"ID {b['id']}: {b['title']} by {b['author']} | Status: {status_label} | Format: {b['format'] or 'unknown'} | Genre: {b['genre'] or 'unknown'} | Tropes: {tropes_str} | Mood: {mood_str}"
         )
     library_text = "\n".join(library_lines)
 
