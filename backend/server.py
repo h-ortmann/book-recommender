@@ -159,7 +159,7 @@ def delete_book(id):
 
 @app.route("/admin/backfill-covers", methods=["POST"])
 def backfill_covers():
-    books = Book.query.filter(Book.cover_url.is_(None)).all()
+    books = Book.query.filter(Book.cover_url.is_(None)).limit(25).all()
     found = 0
     not_found = 0
     for book in books:
@@ -171,7 +171,8 @@ def backfill_covers():
             not_found += 1
         time.sleep(0.2)
     db.session.commit()
-    return jsonify({"updated": found, "not_found": not_found, "total": len(books)})
+    remaining = Book.query.filter(Book.cover_url.is_(None)).count()
+    return jsonify({"updated": found, "not_found": not_found, "remaining": remaining})
 
 
 # --- AI: autofill metadata ---
