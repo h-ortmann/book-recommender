@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ChevronDown, ChevronUp, Plus } from "lucide-react"
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000"
 
@@ -44,6 +44,7 @@ export default function App() {
   // Search state
   const [librarySearch, setLibrarySearch] = useState("")
   const [readSearch, setReadSearch] = useState("")
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   useEffect(() => {
     fetchBooks()
@@ -409,6 +410,32 @@ export default function App() {
     )
   }
 
+  function DeleteConfirmDialog() {
+    const book = books.find((b) => b.id === confirmDeleteId)
+    if (!book) return null
+    return (
+      <Dialog open={!!confirmDeleteId} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete this book?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            <span className="font-medium text-foreground">{book.title}</span> will be permanently removed from your library.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)} className="flex-1">Cancel</Button>
+            <Button
+              onClick={() => { handleDelete(confirmDeleteId); setConfirmDeleteId(null) }}
+              className="flex-1 bg-destructive text-white hover:bg-destructive/80"
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   const currentlyReading = books.filter((b) => b.read_status === "reading")
   const wantToRead = books.filter((b) => b.read_status === "want_to_read")
   const allRead = books.filter((b) => b.read_status === "read")
@@ -424,6 +451,7 @@ export default function App() {
   return (
     <div className="max-w-4xl mx-auto px-8 py-12 space-y-12">
       <BookDetailDialog />
+      <DeleteConfirmDialog />
 
       {/* Header */}
       <div className="border-b pb-8">
@@ -595,7 +623,10 @@ export default function App() {
           <h2 className="text-lg font-heading font-semibold">Currently reading</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {currentlyReading.map((book) => (
-              <Card key={book.id} className="shadow-sm flex flex-col">
+              <Card key={book.id} className="shadow-sm flex flex-col relative">
+                {editingId !== book.id && (
+                  <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(book.id) }} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer z-10"><Trash2 size={14} /></button>
+                )}
                 <CardContent className="py-4 flex flex-col flex-1">
                   {editingId === book.id ? renderEditForm(book.id) : (
                     <>
@@ -675,7 +706,10 @@ export default function App() {
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {groupBooks.map((book) => (
-                    <Card key={book.id} className="shadow-sm flex flex-col">
+                    <Card key={book.id} className="shadow-sm flex flex-col relative">
+                      {editingId !== book.id && (
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(book.id) }} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer z-10"><Trash2 size={14} /></button>
+                      )}
                       <CardContent className="py-4 flex flex-col flex-1">
                         {editingId === book.id ? renderEditForm(book.id) : (
                           <>
@@ -747,7 +781,10 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {filteredRead.map((book) => (
-                      <Card key={book.id} className="shadow-sm flex flex-col">
+                      <Card key={book.id} className="shadow-sm flex flex-col relative">
+                        {editingId !== book.id && (
+                          <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(book.id) }} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer z-10"><Trash2 size={14} /></button>
+                        )}
                         <CardContent className="py-4 flex flex-col flex-1">
                           {editingId === book.id ? renderEditForm(book.id) : (
                             <>
