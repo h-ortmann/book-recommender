@@ -2,16 +2,18 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { ChevronDown, ChevronUp, Plus } from "lucide-react"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000"
 
 export default function App() {
   const [books, setBooks] = useState([])
 
-  // Add book form
+  // Add book modal
+  const [addBookOpen, setAddBookOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [author, setAuthor] = useState("")
   const [genre, setGenre] = useState("")
@@ -20,6 +22,7 @@ export default function App() {
   const [pageCount, setPageCount] = useState("")
   const [description, setDescription] = useState("")
   const [format, setFormat] = useState("physical")
+  const [coverUrl, setCoverUrl] = useState(null)
   const [metadataVisible, setMetadataVisible] = useState(false)
 
   // AI states
@@ -30,10 +33,11 @@ export default function App() {
   const [streamingReason, setStreamingReason] = useState("")
   const [excludedIds, setExcludedIds] = useState([])
   const [groupBy, setGroupBy] = useState("none")
-  const [librarySectionOpen, setLibrarySectionOpen] = useState(true)
+  const [libraryDisplayCount, setLibraryDisplayCount] = useState(4)
   const [readSectionOpen, setReadSectionOpen] = useState(false)
 
   // Edit state
+  const [viewingBook, setViewingBook] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
 
@@ -66,6 +70,7 @@ export default function App() {
       setMood(Array.isArray(data.mood) ? data.mood.join(", ") : "")
       setPageCount(data.page_count ? String(data.page_count) : "")
       setDescription(data.description || "")
+      setCoverUrl(data.cover_url || null)
       setMetadataVisible(true)
     } finally {
       setAutofillLoading(false)
@@ -87,11 +92,14 @@ export default function App() {
         description,
         format,
         read_status: "want_to_read",
+        cover_url: coverUrl,
       }),
     })
     setTitle(""); setAuthor(""); setGenre(""); setTropes("")
     setMood(""); setPageCount(""); setDescription(""); setFormat("physical")
+    setCoverUrl(null)
     setMetadataVisible(false)
+    setAddBookOpen(false)
     fetchBooks()
   }
 
@@ -106,7 +114,6 @@ export default function App() {
     setRecommendation(null)
     setStreamingReason("")
     try {
-      // Step 1: get the pick (book_id, title, author) — fast, with adaptive thinking
       const res = await fetch(`${API_URL}/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,7 +125,6 @@ export default function App() {
       setRecommendation(pick)
       setRecommendLoading(false)
 
-      // Step 2: stream the reason
       const bookDetails = books.find((b) => b.id === pick.book_id)
       const reasonRes = await fetch(`${API_URL}/recommend-reason`, {
         method: "POST",
@@ -234,9 +240,7 @@ export default function App() {
           ? book.genre || "Unknown"
           : book.format === "ebook"
           ? "E-book"
-          : book.format === "physical"
-          ? "Physical"
-          : "Other"
+          : "Physical"
       if (!acc[key]) acc[key] = []
       acc[key].push(book)
       return acc
@@ -245,36 +249,36 @@ export default function App() {
 
   function renderEditForm(bookId) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex gap-2">
           <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Title</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Title</p>
             <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
           </div>
           <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Author</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Author</p>
             <Input value={editForm.author} onChange={(e) => setEditForm({ ...editForm, author: e.target.value })} />
           </div>
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Genre</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Genre</p>
           <Input value={editForm.genre} onChange={(e) => setEditForm({ ...editForm, genre: e.target.value })} />
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Tropes</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Tropes</p>
           <Input placeholder="comma-separated" value={editForm.tropes} onChange={(e) => setEditForm({ ...editForm, tropes: e.target.value })} />
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Mood</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Mood</p>
           <Input placeholder="comma-separated" value={editForm.mood} onChange={(e) => setEditForm({ ...editForm, mood: e.target.value })} />
         </div>
         <div className="flex gap-2">
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">Page count</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Page count</p>
             <Input type="number" className="w-32" value={editForm.page_count} onChange={(e) => setEditForm({ ...editForm, page_count: e.target.value })} />
           </div>
           <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Format</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Format</p>
             <select
               value={editForm.format}
               onChange={(e) => setEditForm({ ...editForm, format: e.target.value })}
@@ -286,18 +290,18 @@ export default function App() {
           </div>
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Description</p>
           <Textarea rows={2} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Rating</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Rating</p>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
               <button
                 key={star}
                 type="button"
                 onClick={() => setEditForm({ ...editForm, rating: editForm.rating === star ? null : star })}
-                className={`text-xl leading-none ${star <= (editForm.rating || 0) ? "text-yellow-400" : "text-muted-foreground"}`}
+                className={`text-xl leading-none ${star <= (editForm.rating || 0) ? "text-yellow-500" : "text-muted-foreground"}`}
               >
                 ★
               </button>
@@ -305,10 +309,10 @@ export default function App() {
           </div>
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Notes</p>
           <Textarea rows={2} placeholder="Your thoughts on this book…" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
         </div>
-        <div className="flex gap-2 pt-1">
+        <div className="flex gap-2 pt-2">
           <Button size="sm" onClick={() => handleEditSave(bookId)} className="flex-1">Save</Button>
           <Button size="sm" variant="outline" onClick={handleEditCancel} className="flex-1">Cancel</Button>
         </div>
@@ -316,288 +320,414 @@ export default function App() {
     )
   }
 
+  function BookCover({ url, title }) {
+    if (url) {
+      return (
+        <img
+          src={url}
+          alt={`${title} cover`}
+          className="w-24 rounded object-cover shrink-0 self-start shadow-sm"
+          style={{ aspectRatio: "2/3" }}
+        />
+      )
+    }
+    return (
+      <div
+        className="w-24 rounded bg-muted shrink-0 self-start flex items-center justify-center"
+        style={{ aspectRatio: "2/3" }}
+      >
+        <span className="text-muted-foreground text-xl">📖</span>
+      </div>
+    )
+  }
+
+  function BookDetailDialog() {
+    if (!viewingBook) return null
+    const b = viewingBook
+    return (
+      <Dialog open={!!viewingBook} onOpenChange={(open) => { if (!open) setViewingBook(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="sr-only">{b.title}</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[75vh] space-y-6">
+          <div className="flex gap-4 pt-2">
+            {b.cover_url ? (
+              <img src={b.cover_url} alt="" className="w-28 rounded object-cover shrink-0 shadow-sm" style={{ aspectRatio: "2/3" }} />
+            ) : (
+              <div className="w-28 rounded bg-muted shrink-0 flex items-center justify-center" style={{ aspectRatio: "2/3" }}>
+                <span className="text-3xl">📖</span>
+              </div>
+            )}
+            <div className="flex-1 min-w-0 space-y-2 pt-2">
+              <h2 className="font-heading font-bold text-xl leading-snug">{b.title}</h2>
+              <p className="text-muted-foreground text-sm">by {b.author}</p>
+              <p className="text-xs text-muted-foreground">
+                {[b.genre, b.page_count ? `${b.page_count} pages` : null, b.format === "ebook" ? "E-book" : b.format === "physical" ? "Physical" : null].filter(Boolean).join(" · ")}
+              </p>
+              {b.rating && (
+                <p className="text-base text-yellow-500 leading-none pt-1">
+                  {"★".repeat(b.rating)}
+                  <span className="text-muted-foreground opacity-40">{"★".repeat(5 - b.rating)}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="space-y-6 pt-4">
+            {b.tropes?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Tropes</p>
+                <div className="flex flex-wrap gap-1">
+                  {b.tropes.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                </div>
+              </div>
+            )}
+            {b.mood?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Mood</p>
+                <div className="flex flex-wrap gap-1">
+                  {b.mood.map((m) => <Badge key={m} variant="outline" className="text-xs">{m}</Badge>)}
+                </div>
+              </div>
+            )}
+            {b.description && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Description</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{b.description}</p>
+              </div>
+            )}
+            {b.notes && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Notes</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{b.notes}</p>
+              </div>
+            )}
+          </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   const currentlyReading = books.filter((b) => b.read_status === "reading")
   const wantToRead = books.filter((b) => b.read_status === "want_to_read")
   const allRead = books.filter((b) => b.read_status === "read")
-  const filteredWantToRead = librarySearch
-    ? wantToRead.filter((b) => b.title.toLowerCase().includes(librarySearch.toLowerCase()) || b.author.toLowerCase().includes(librarySearch.toLowerCase()))
-    : wantToRead
-  const filteredRead = readSearch
-    ? allRead.filter((b) => b.title.toLowerCase().includes(readSearch.toLowerCase()) || b.author.toLowerCase().includes(readSearch.toLowerCase()))
-    : allRead
+  const searchMatch = (b, q) => {
+    const s = q.toLowerCase()
+    return b.title.toLowerCase().includes(s) ||
+      b.author.toLowerCase().includes(s) ||
+      (b.genre && b.genre.toLowerCase().includes(s))
+  }
+  const filteredWantToRead = librarySearch ? wantToRead.filter((b) => searchMatch(b, librarySearch)) : wantToRead
+  const filteredRead = readSearch ? allRead.filter((b) => searchMatch(b, readSearch)) : allRead
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-      <h1 className="text-2xl font-bold tracking-tight">My Book Library</h1>
+    <div className="max-w-4xl mx-auto px-8 py-12 space-y-12">
+      <BookDetailDialog />
 
-      {/* Add a book */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add a book</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAddBook} className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
-              <Input
-                placeholder="Author"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                required
-              />
+      {/* Header */}
+      <div className="border-b pb-8">
+        <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-5xl font-heading font-bold tracking-tight">Shelf'd</h1>
+          <p className="text-muted-foreground mt-2 text-sm italic">Where your TBR finally meets its match.</p>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {books.length} books · {wantToRead.length} to read
+            {currentlyReading.length > 0 && ` · ${currentlyReading.length} in progress`}
+          </p>
+        </div>
+        <Dialog open={addBookOpen} onOpenChange={(open) => {
+          setAddBookOpen(open)
+          if (!open) {
+            setTitle(""); setAuthor(""); setGenre(""); setTropes("")
+            setMood(""); setPageCount(""); setDescription(""); setFormat("physical")
+            setCoverUrl(null)
+            setMetadataVisible(false)
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus size={15} />
+              Add a book
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="font-heading text-xl">Add a book</DialogTitle>
+            </DialogHeader>
+            <div className="overflow-y-auto max-h-[75vh]">
+            <form onSubmit={handleAddBook} className="space-y-4 pt-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+                <Input
+                  placeholder="Author"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  required
+                />
+              </div>
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleAutofill}
                 disabled={autofillLoading || !title || !author}
-                className="shrink-0"
+                className="w-full"
               >
-                {autofillLoading ? "Filling…" : "Autofill ✦"}
+                {autofillLoading ? "Filling…" : "Autofill with AI ✦"}
               </Button>
-            </div>
 
-            {metadataVisible && (
-              <div className="space-y-3 pt-2 border-t">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Genre</p>
-                  <Input value={genre} onChange={(e) => setGenre(e.target.value)} />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Tropes</p>
-                  <Input placeholder="comma-separated" value={tropes} onChange={(e) => setTropes(e.target.value)} />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Mood</p>
-                  <Input placeholder="comma-separated" value={mood} onChange={(e) => setMood(e.target.value)} />
-                </div>
-                <div className="flex gap-2">
+              {metadataVisible && (
+                <div className="space-y-4 pt-4 border-t">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Page count</p>
-                    <Input
-                      value={pageCount}
-                      onChange={(e) => setPageCount(e.target.value)}
-                      type="number"
-                      className="w-32"
-                    />
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Genre</p>
+                    <Input value={genre} onChange={(e) => setGenre(e.target.value)} />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Format</p>
-                    <select
-                      value={format}
-                      onChange={(e) => setFormat(e.target.value)}
-                      className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
-                    >
-                      <option value="physical">Physical</option>
-                      <option value="ebook">E-book</option>
-                    </select>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Tropes</p>
+                    <Input placeholder="comma-separated" value={tropes} onChange={(e) => setTropes(e.target.value)} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Mood</p>
+                    <Input placeholder="comma-separated" value={mood} onChange={(e) => setMood(e.target.value)} />
+                  </div>
+                  <div className="flex gap-2">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Page count</p>
+                      <Input
+                        value={pageCount}
+                        onChange={(e) => setPageCount(e.target.value)}
+                        type="number"
+                        className="w-32"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Format</p>
+                      <select
+                        value={format}
+                        onChange={(e) => setFormat(e.target.value)}
+                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+                      >
+                        <option value="physical">Physical</option>
+                        <option value="ebook">E-book</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Description</p>
+                    <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-                  <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-                </div>
-              </div>
-            )}
+              )}
 
-            <Button type="submit" className="w-full">
-              Add to library
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button type="submit" className="w-full">
+                Add to library
+              </Button>
+            </form>
+            </div>
+          </DialogContent>
+        </Dialog>
+        </div>
+      </div>
 
-      {/* Recommend */}
-      <Card>
-        <CardHeader>
-          <CardTitle>What should I read next?</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      {/* Recommendation panel */}
+      <div className="bg-accent border border-border rounded-xl p-8 space-y-6">
+        <h2 className="text-xl font-heading font-semibold">What should I read next?</h2>
+        <div className="flex gap-2">
           <Input
             placeholder="e.g. I'm travelling and want something light and fun"
             value={recommendContext}
-            onChange={(e) => { setRecommendContext(e.target.value); setExcludedIds([]); setRecommendation(null) }}
+            onChange={(e) => {
+              setRecommendContext(e.target.value)
+              setExcludedIds([])
+              setRecommendation(null)
+            }}
           />
           <Button
             onClick={() => handleRecommend(excludedIds)}
             disabled={recommendLoading || !recommendContext || books.length === 0}
-            className="w-full"
+            className="shrink-0"
           >
-            {recommendLoading ? "Thinking…" : "Recommend something ✦"}
+            {recommendLoading ? "Thinking…" : "Recommend ✦"}
           </Button>
-          {recommendation && !recommendation.error && (
-            <div className="pt-2 border-t space-y-2">
-              <p className="font-semibold">
-                {recommendation.title}{" "}
-                <span className="font-normal text-muted-foreground">
-                  by {recommendation.author}
-                </span>
-              </p>
-              {(() => {
-                const tropes = books.find((b) => b.id === recommendation.book_id)?.tropes
-                return tropes?.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {tropes.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
-                    ))}
-                  </div>
-                ) : null
-              })()}
-              <p className="text-sm text-muted-foreground">
-                {streamingReason || "Finding out why…"}
-              </p>
-              <div className="flex gap-2 pt-1">
-                <Button onClick={handleLetsReadThat} className="flex-1">
-                  Let's read that!
-                </Button>
-                <Button onClick={handleSuggestAnother} variant="outline" className="flex-1" disabled={recommendLoading}>
-                  Suggest another
-                </Button>
-              </div>
+        </div>
+        {recommendation && !recommendation.error && (
+          <div className="pt-4 border-t space-y-4">
+            <div>
+              <p className="font-heading font-semibold text-lg leading-snug">{recommendation.title}</p>
+              <p className="text-muted-foreground text-sm">by {recommendation.author}</p>
             </div>
-          )}
-          {recommendation?.error && (
-            <p className="text-sm text-destructive">{recommendation.error}</p>
-          )}
-        </CardContent>
-      </Card>
+            {(() => {
+              const bookTropes = books.find((b) => b.id === recommendation.book_id)?.tropes
+              return bookTropes?.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {bookTropes.map((t) => (
+                    <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                  ))}
+                </div>
+              ) : null
+            })()}
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {streamingReason || "Finding out why…"}
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={handleLetsReadThat} className="flex-1">
+                Let's read that!
+              </Button>
+              <Button onClick={handleSuggestAnother} variant="outline" className="flex-1" disabled={recommendLoading}>
+                Suggest another
+              </Button>
+            </div>
+          </div>
+        )}
+        {recommendation?.error && (
+          <p className="text-sm text-destructive">{recommendation.error}</p>
+        )}
+      </div>
 
       {/* Currently reading */}
       {currentlyReading.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Currently reading</h2>
-          {currentlyReading.map((book) => (
-            <Card key={book.id}>
-              <CardContent className="pt-4">
-                {editingId === book.id ? renderEditForm(book.id) : (
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="space-y-1 min-w-0">
-                      <p className="font-medium leading-snug">{book.title}</p>
-                      <p className="text-sm text-muted-foreground">{book.author}</p>
-                      {(book.genre || book.page_count) && (
-                        <p className="text-xs text-muted-foreground">
-                          {[book.genre, book.page_count ? `${book.page_count} pages` : null, book.format].filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-                      {book.tropes?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {book.tropes.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+        <div className="space-y-4">
+          <h2 className="text-lg font-heading font-semibold">Currently reading</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {currentlyReading.map((book) => (
+              <Card key={book.id} className="shadow-sm flex flex-col">
+                <CardContent className="py-4 flex flex-col flex-1">
+                  {editingId === book.id ? renderEditForm(book.id) : (
+                    <>
+                      <div className="flex gap-4 flex-1 cursor-pointer" onClick={() => setViewingBook(book)}>
+                        <BookCover url={book.cover_url} title={book.title} />
+                        <div className="flex-1 space-y-2 min-w-0">
+                          <p className="font-semibold leading-snug">{book.title}</p>
+                          <p className="text-sm text-muted-foreground">{book.author}</p>
+                          {book.genre && (
+                            <p className="text-xs text-muted-foreground">{book.genre}</p>
+                          )}
+                          {book.tropes?.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-2">
+                              {book.tropes.slice(0, 3).map((t) => (
+                                <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {book.description && (
-                        <p className="text-xs text-muted-foreground pt-1 line-clamp-2">{book.description}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1 shrink-0">
-                      <Button size="sm" onClick={() => handleMarkRead(book.id)}>Finished</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleMoveToWantToRead(book.id)}>Not now</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleEditStart(book)}>Edit</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDelete(book.id)}>Delete</Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                      </div>
+                      <div className="flex gap-6 pt-4">
+                        <Button onClick={() => handleMarkRead(book.id)} className="flex-1 text-xs">Finished</Button>
+                        <Button variant="outline" onClick={() => handleMoveToWantToRead(book.id)} className="flex-1 text-xs">Not now</Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Library */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => setLibrarySectionOpen((o) => !o)}
-            className="flex items-center gap-2 text-lg font-semibold hover:text-muted-foreground transition-colors text-left"
-          >
-            {librarySectionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            Library{" "}
-            <span className="text-muted-foreground font-normal text-base">
-              ({wantToRead.length} books)
+          <h2 className="text-lg font-heading font-semibold">
+            Library
+            <span className="text-muted-foreground font-normal text-base font-sans ml-2">
+              ({wantToRead.length})
             </span>
-          </button>
-          {librarySectionOpen && (
-            <div className="flex gap-1">
-              {["none", "genre", "format"].map((option) => (
-                <Button
-                  key={option}
-                  size="sm"
-                  variant={groupBy === option ? "default" : "outline"}
-                  onClick={() => setGroupBy(option)}
-                  className="text-xs capitalize"
-                >
-                  {option === "none" ? "All" : option}
-                </Button>
-              ))}
-            </div>
-          )}
+          </h2>
+          <div className="flex gap-1">
+            {["none", "genre", "format"].map((option) => (
+              <Button
+                key={option}
+                size="sm"
+                variant={groupBy === option ? "default" : "outline"}
+                onClick={() => setGroupBy(option)}
+                className="text-xs capitalize"
+              >
+                {option === "none" ? "All" : option}
+              </Button>
+            ))}
+          </div>
         </div>
 
-        {librarySectionOpen && (
-        <>
         <Input
-          placeholder="Search by title or author…"
+          placeholder="Search by title, author or genre…"
           value={librarySearch}
-          onChange={(e) => setLibrarySearch(e.target.value)}
+          onChange={(e) => { setLibrarySearch(e.target.value); setLibraryDisplayCount(4) }}
         />
-
         {wantToRead.length === 0 ? (
           <p className="text-muted-foreground text-sm">No books yet — add one above.</p>
         ) : filteredWantToRead.length === 0 ? (
           <p className="text-muted-foreground text-sm">No books match your search.</p>
         ) : (
-          Object.entries(getGroupedBooks(filteredWantToRead)).map(([groupName, groupBooks]) => (
-            <div key={groupName} className="space-y-2">
-              {groupBy !== "none" && (
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">
-                  {groupName}
-                </p>
-              )}
-              {groupBooks.map((book) => (
-                <Card key={book.id}>
-                  <CardContent className="pt-4">
-                    {editingId === book.id ? renderEditForm(book.id) : (
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="space-y-1 min-w-0">
-                          <p className="font-medium leading-snug">{book.title}</p>
-                          <p className="text-sm text-muted-foreground">{book.author}</p>
-                          {(book.genre || book.page_count) && (
-                            <p className="text-xs text-muted-foreground">
-                              {[book.genre, book.page_count ? `${book.page_count} pages` : null, book.format].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
-                          {book.tropes?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 pt-1">
-                              {book.tropes.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+          <>
+            {Object.entries(getGroupedBooks(
+              groupBy === "none" ? filteredWantToRead.slice(0, libraryDisplayCount) : filteredWantToRead
+            )).map(([groupName, groupBooks]) => (
+              <div key={groupName} className="space-y-4">
+                {groupBy !== "none" && (
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">
+                    {groupName}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {groupBooks.map((book) => (
+                    <Card key={book.id} className="shadow-sm flex flex-col">
+                      <CardContent className="py-4 flex flex-col flex-1">
+                        {editingId === book.id ? renderEditForm(book.id) : (
+                          <>
+                            <div className="flex gap-4 flex-1 cursor-pointer" onClick={() => setViewingBook(book)}>
+                              <BookCover url={book.cover_url} title={book.title} />
+                              <div className="flex-1 space-y-2 min-w-0">
+                                <p className="font-semibold leading-snug">{book.title}</p>
+                                <p className="text-sm text-muted-foreground">{book.author}</p>
+                                {(book.genre || book.page_count) && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {[book.genre, book.page_count ? `${book.page_count}p` : null, book.format === "ebook" ? "E-book" : "Physical"].filter(Boolean).join(" · ")}
+                                  </p>
+                                )}
+                                {book.tropes?.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 pt-2">
+                                    {book.tropes.slice(0, 3).map((t) => (
+                                      <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                                {book.description && (
+                                  <p className="text-xs text-muted-foreground pt-2 line-clamp-2">{book.description}</p>
+                                )}
+                              </div>
                             </div>
-                          )}
-                          {book.description && (
-                            <p className="text-xs text-muted-foreground pt-1 line-clamp-2">{book.description}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <Button size="sm" variant="outline" onClick={() => handleEditStart(book)}>Edit</Button>
-                          <Button size="sm" variant="outline" onClick={() => handleMarkRead(book.id)}>Read</Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(book.id)}>Delete</Button>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ))
+                            <div className="flex gap-6 pt-4">
+                              <Button variant="outline" onClick={() => handleEditStart(book)} className="flex-1 text-xs">Edit</Button>
+                              <Button variant="outline" onClick={() => handleMarkRead(book.id)} className="flex-1 text-xs">Mark read</Button>
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {groupBy === "none" && filteredWantToRead.length > libraryDisplayCount && (
+              <Button
+                variant="outline"
+                className="w-full text-sm"
+                onClick={() => setLibraryDisplayCount((n) => n + 4)}
+              >
+                Show {Math.min(4, filteredWantToRead.length - libraryDisplayCount)} more books
+              </Button>
+            )}
+          </>
         )}
 
-        </>
-        )}
-
-        {/* Already read — collapsible */}
+        {/* Already read */}
         {allRead.length > 0 && (
-          <div className="pt-4 border-t">
+          <div className="pt-8 border-t">
             <button
               onClick={() => setReadSectionOpen((o) => !o)}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
@@ -606,44 +736,48 @@ export default function App() {
               Already read ({allRead.length})
             </button>
             {readSectionOpen && (
-              <div className="space-y-2 mt-3">
+              <div className="space-y-4 mt-4">
                 <Input
-                  placeholder="Search by title or author…"
+                  placeholder="Search by title, author or genre…"
                   value={readSearch}
                   onChange={(e) => setReadSearch(e.target.value)}
                 />
                 {filteredRead.length === 0 ? (
                   <p className="text-muted-foreground text-sm">No books match your search.</p>
                 ) : (
-                  filteredRead.map((book) => (
-                    <Card key={book.id}>
-                      <CardContent className="pt-4">
-                        {editingId === book.id ? renderEditForm(book.id) : (
-                          <div className="flex justify-between items-start gap-4">
-                            <div className="space-y-0.5 min-w-0">
-                              <p className="font-medium leading-snug">{book.title}</p>
-                              <p className="text-sm text-muted-foreground">{book.author}</p>
-                              {book.genre && <p className="text-xs text-muted-foreground">{book.genre}</p>}
-                              {book.rating && (
-                                <p className="text-sm text-yellow-400 leading-none">
-                                  {"★".repeat(book.rating)}
-                                  <span className="text-muted-foreground">{"★".repeat(5 - book.rating)}</span>
-                                </p>
-                              )}
-                              {book.notes && (
-                                <p className="text-xs text-muted-foreground line-clamp-2 pt-0.5">{book.notes}</p>
-                              )}
-                            </div>
-                            <div className="flex flex-col gap-1 shrink-0">
-                              <Button variant="outline" size="sm" onClick={() => handleMoveToWantToRead(book.id)}>Re-read</Button>
-                              <Button variant="outline" size="sm" onClick={() => handleEditStart(book)}>Edit</Button>
-                              <Button variant="outline" size="sm" onClick={() => handleDelete(book.id)}>Delete</Button>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {filteredRead.map((book) => (
+                      <Card key={book.id} className="shadow-sm flex flex-col">
+                        <CardContent className="py-4 flex flex-col flex-1">
+                          {editingId === book.id ? renderEditForm(book.id) : (
+                            <>
+                              <div className="flex gap-4 flex-1 cursor-pointer" onClick={() => setViewingBook(book)}>
+                                <BookCover url={book.cover_url} title={book.title} />
+                                <div className="flex-1 space-y-2 min-w-0">
+                                  <p className="font-semibold leading-snug">{book.title}</p>
+                                  <p className="text-sm text-muted-foreground">{book.author}</p>
+                                  {book.genre && <p className="text-xs text-muted-foreground">{book.genre}</p>}
+                                  {book.rating && (
+                                    <p className="text-sm text-yellow-500 leading-none pt-1">
+                                      {"★".repeat(book.rating)}
+                                      <span className="text-muted-foreground opacity-40">{"★".repeat(5 - book.rating)}</span>
+                                    </p>
+                                  )}
+                                  {book.notes && (
+                                    <p className="text-xs text-muted-foreground line-clamp-2 pt-1">{book.notes}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-6 pt-4">
+                                <Button variant="outline" onClick={() => handleMoveToWantToRead(book.id)} className="flex-1 text-xs">Re-read</Button>
+                                <Button variant="outline" onClick={() => handleEditStart(book)} className="flex-1 text-xs">Edit</Button>
+                              </div>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 )}
               </div>
             )}

@@ -7,6 +7,9 @@ import anthropic
 import datetime
 import json
 import os
+import time
+import urllib.request
+import urllib.parse
 
 try:
     from dotenv import load_dotenv
@@ -41,6 +44,7 @@ class Book(db.Model):
     read_status = db.Column(db.String(20), default="want_to_read")
     rating = db.Column(db.Integer)     # 1–5, optional
     notes = db.Column(db.Text)
+    cover_url = db.Column(db.Text)
     date_added = db.Column(db.DateTime, default=datetime.datetime.now)
 
     def to_dict(self):
@@ -57,8 +61,26 @@ class Book(db.Model):
             "read_status": self.read_status,
             "rating": self.rating,
             "notes": self.notes,
+            "cover_url": self.cover_url,
             "date_added": self.date_added.isoformat() if self.date_added else None,
         }
+
+
+def fetch_cover_url(title, author):
+    try:
+        params = urllib.parse.urlencode({"title": title, "author": author, "limit": 1, "fields": "cover_i"})
+        req = urllib.request.Request(
+            f"https://openlibrary.org/search.json?{params}",
+            headers={"User-Agent": "ShelfD/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        cover_id = data.get("docs", [{}])[0].get("cover_i")
+        if cover_id:
+            return f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
+    except Exception:
+        pass
+    return None
 
 
 # --- CRUD ---
@@ -82,6 +104,7 @@ def add_book():
         description=data.get("description"),
         format=data.get("format", "physical"),
         read_status=data.get("read_status", "want_to_read"),
+        cover_url=data.get("cover_url"),
     )
     db.session.add(book)
     db.session.commit()
@@ -116,6 +139,8 @@ def update_book(id):
         book.rating = data["rating"]
     if "notes" in data:
         book.notes = data["notes"]
+    if "cover_url" in data:
+        book.cover_url = data["cover_url"]
     db.session.commit()
     return jsonify(book.to_dict())
 
@@ -128,6 +153,25 @@ def delete_book(id):
     db.session.delete(book)
     db.session.commit()
     return jsonify({"deleted": id})
+
+
+# --- Admin: backfill covers ---
+
+@app.route("/admin/backfill-covers", methods=["POST"])
+def backfill_covers():
+    books = Book.query.filter(Book.cover_url.is_(None)).all()
+    found = 0
+    not_found = 0
+    for book in books:
+        url = fetch_cover_url(book.title, book.author)
+        if url:
+            book.cover_url = url
+            found += 1
+        else:
+            not_found += 1
+        time.sleep(0.5)
+    db.session.commit()
+    return jsonify({"updated": found, "not_found": not_found, "total": len(books)})
 
 
 # --- AI: autofill metadata ---
@@ -154,6 +198,7 @@ Return only the JSON object. No explanation, no markdown code blocks.""",
 
     try:
         metadata = json.loads(response.content[0].text)
+        metadata["cover_url"] = fetch_cover_url(title, author)
         return jsonify(metadata)
     except (json.JSONDecodeError, IndexError):
         return jsonify({"error": "Could not parse metadata from AI response"}), 500

@@ -16,7 +16,7 @@ Milestone 2 app. A personal book library manager with two AI features:
 - Flask API — `server.py`
 - SQLAlchemy + SQLite locally → PostgreSQL (Neon) in production
 - NullPool for Neon compatibility (same fix as food tracker)
-- Flask-Migrate for schema migrations
+- Flask-Migrate for schema migrations (3 migrations total)
 - Anthropic Python SDK for both AI features
 - `python-dotenv` loads `backend/.env` in local dev (never commit `.env`)
 - venv at `backend/venv/` — activate with `source venv/bin/activate`
@@ -35,6 +35,8 @@ Milestone 2 app. A personal book library manager with two AI features:
 | description | Text | 2-3 sentence summary |
 | format | String(20) | "physical" or "ebook" |
 | read_status | String(20) | "want_to_read" / "reading" / "read" — default "want_to_read" |
+| rating | Integer | 1–5 stars, optional |
+| notes | Text | Personal notes, optional |
 | date_added | DateTime | Defaults to now |
 
 ### API endpoints
@@ -42,10 +44,11 @@ Milestone 2 app. A personal book library manager with two AI features:
 |---|---|---|
 | GET | `/books` | Return all books, ordered by date_added desc |
 | POST | `/books` | Add a book |
-| PATCH | `/books/<id>` | Update read_status |
+| PATCH | `/books/<id>` | Partial update — any combination of fields |
 | DELETE | `/books/<id>` | Delete a book |
 | POST | `/books/autofill` | Body: `{title, author}` → returns metadata JSON |
-| POST | `/recommend` | Body: `{context, exclude_ids[]}` → returns recommendation JSON |
+| POST | `/recommend` | Body: `{context, exclude_ids[]}` → returns pick JSON `{book_id, title, author}` |
+| POST | `/recommend-reason` | Body: `{title, author, genre, tropes, mood, context}` → streams reason as plain text |
 
 ### AI features
 **Autofill** (`POST /books/autofill`):
@@ -54,11 +57,18 @@ Milestone 2 app. A personal book library manager with two AI features:
 - No thinking needed — simple lookup, not reasoning
 
 **Recommend** (`POST /recommend`):
-- Sends full library (all statuses) + user context to Claude Opus 4.8
+- Sends full library (all statuses + format) + user context to Claude Opus 4.8
 - Adaptive thinking enabled — Claude reasons over the options before picking
 - Claude respects status: defaults to unread books, picks from "read" pile if user mentions re-reads
+- Claude respects format: physical/ebook included in each library line
 - `exclude_ids` list grows with each "Suggest another" click — ensures different picks each time
-- Returns: book_id, title, author, reason
+- Returns: `{book_id, title, author}` only — reason is streamed separately
+
+**Stream reason** (`POST /recommend-reason`):
+- Takes `{title, author, genre, tropes, mood, context}` — no adaptive thinking needed (just prose)
+- Uses `claude.messages.stream()` + `stream.text_stream` to yield chunks as they arrive
+- Flask returns a `Response` with `stream_with_context(generate())`, `content_type="text/plain"`, `X-Accel-Buffering: no`
+- Frontend reads with `res.body.getReader()` + `TextDecoder` loop, updating `streamingReason` state on each chunk
 
 ### Frontend (`/frontend`)
 - React 19 + Vite
@@ -71,8 +81,12 @@ Milestone 2 app. A personal book library manager with two AI features:
 ### Current UI sections
 1. **Add a book** — title + author + Autofill button; metadata fields reveal after autofill
 2. **What should I read next?** — mood input → recommendation with tropes + reason; "Let's read that!" marks book as "reading"; "Suggest another" excludes current pick
-3. **Library** — shows only unread/reading books, grouped by All/Genre/Format; "Read" button marks as read, "Delete" removes permanently
-4. **Already read** — collapsible section at the bottom; books with status "read" live here
+3. **Currently reading** — dedicated section (shown only when books have "reading" status); "Finished" marks as read, "Not now" moves back to want_to_read
+4. **Library** — collapsible; shows only want_to_read books; search bar; grouped by All/Genre/Format; "Read" marks as read, "Edit" opens inline form, "Delete" removes
+5. **Already read** — collapsible section at the bottom; search bar; shows rating + notes; "Re-read" moves back to want_to_read; "Edit" opens inline form
+
+### Inline edit form
+`renderEditForm(bookId)` — defined once, used in all three card sections. Edits: title, author, genre, tropes, mood, page_count, format, description, rating (star picker), notes.
 
 ## Decisions made
 | Decision | Choice | Reason |
@@ -81,6 +95,9 @@ Milestone 2 app. A personal book library manager with two AI features:
 | AI provider | Anthropic (Claude Opus 4.8) | Best reasoning quality; Python SDK is clean |
 | Metadata storage | JSON strings in Text columns | Simple for a personal app; no need for separate tropes/mood tables |
 | Re-reads in recommendation | Send full library with status labels | Lets Claude reason about which pool to use based on context |
+| Format in recommendation | Included in library lines sent to Claude | Claude can only act on what it's told — format was missing, so format preferences were ignored |
+| PATCH endpoint | Accepts any subset of fields | Cleaner than separate endpoints per field |
+| Streaming split | Pick via `/recommend` (JSON), reason via `/recommend-reason` (stream) | Can't stream JSON — partial JSON is unparseable, so the structured pick and the prose reason must be two separate calls |
 
 ## To run locally
 Terminal 1 (backend):
@@ -133,3 +150,7 @@ FLASK_APP=server flask db upgrade
 
 **Neon (database)**
 - Same setup as food tracker
+
+## What comes next
+- **Milestone 3** — start a new project from scratch with minimal guidance
+- **Authentication** — users, sessions, passwords (the obvious next stack gap)
