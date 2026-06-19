@@ -169,7 +169,7 @@ def backfill_covers():
             found += 1
         else:
             not_found += 1
-        time.sleep(0.5)
+        time.sleep(0.2)
     db.session.commit()
     return jsonify({"updated": found, "not_found": not_found, "total": len(books)})
 
