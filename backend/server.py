@@ -168,6 +168,7 @@ def backfill_covers():
             book.cover_url = url
             found += 1
         else:
+            book.cover_url = ""
             not_found += 1
         time.sleep(0.2)
     db.session.commit()
