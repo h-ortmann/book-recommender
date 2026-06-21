@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronUp, Plus, Trash2, Pencil, BookCheck, RotateCcw } from "lucide-react"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000"
 
@@ -458,11 +458,20 @@ export default function App() {
         <div className="flex items-end justify-between">
         <div>
           <h1 className="text-5xl font-heading font-bold tracking-tight">Shelf'd</h1>
-          <p className="text-muted-foreground mt-2 text-sm italic">Where your TBR finally meets its match.</p>
-          <p className="text-muted-foreground mt-2 text-sm">
-            {books.length} books · {wantToRead.length} to read
-            {currentlyReading.length > 0 && ` · ${currentlyReading.length} in progress`}
-          </p>
+          <p className="text-muted-foreground mt-2 text-2xl italic font-heading">Where your TBR finally meets its match.</p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <div className="bg-white shadow-sm border border-primary rounded-lg px-3 py-1.5 text-sm font-medium">
+              {books.length} books
+            </div>
+            <div className="bg-white shadow-sm border border-primary rounded-lg px-3 py-1.5 text-sm font-medium">
+              {wantToRead.length} to read
+            </div>
+            {currentlyReading.length > 0 && (
+              <div className="bg-white shadow-sm border border-primary rounded-lg px-3 py-1.5 text-sm font-medium">
+                {currentlyReading.length} in progress
+              </div>
+            )}
+          </div>
         </div>
         <Dialog open={addBookOpen} onOpenChange={(open) => {
           setAddBookOpen(open)
@@ -574,6 +583,7 @@ export default function App() {
               setExcludedIds([])
               setRecommendation(null)
             }}
+            className="h-10 bg-white"
           />
           <Button
             onClick={() => handleRecommend(excludedIds)}
@@ -594,7 +604,7 @@ export default function App() {
               return bookTropes?.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {bookTropes.map((t) => (
-                    <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                    <Badge key={t} variant="secondary" className="bg-white shadow-sm text-foreground text-xs">{t}</Badge>
                   ))}
                 </div>
               ) : null
@@ -603,8 +613,8 @@ export default function App() {
               {streamingReason || "Finding out why…"}
             </p>
             <div className="flex gap-2">
-              <Button onClick={handleLetsReadThat} className="flex-1">
-                Let's read that!
+              <Button onClick={handleLetsReadThat} className="flex-[4] gap-1.5 bg-foreground text-background hover:bg-foreground/90 shadow-none">
+                <BookCheck size={15} />Let's read that!
               </Button>
               <Button onClick={handleSuggestAnother} variant="outline" className="flex-1" disabled={recommendLoading}>
                 Suggest another
@@ -647,9 +657,9 @@ export default function App() {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-6 pt-4">
-                        <Button onClick={() => handleMarkRead(book.id)} className="flex-1 text-xs">Finished</Button>
-                        <Button variant="outline" onClick={() => handleMoveToWantToRead(book.id)} className="flex-1 text-xs">Not now</Button>
+                      <div className="flex gap-2 pt-4">
+                        <Button onClick={() => handleMarkRead(book.id)} className="flex-[4] gap-1.5"><BookCheck size={15} />Finished</Button>
+                        <Button variant="outline" onClick={() => handleMoveToWantToRead(book.id)} className="flex-1">Not now</Button>
                       </div>
                     </>
                   )}
@@ -669,7 +679,7 @@ export default function App() {
               ({wantToRead.length})
             </span>
           </h2>
-          <div className="flex gap-1">
+          <div className="flex gap-3">
             {["none", "genre", "format"].map((option) => (
               <Button
                 key={option}
@@ -688,6 +698,7 @@ export default function App() {
           placeholder="Search by title, author or genre…"
           value={librarySearch}
           onChange={(e) => { setLibrarySearch(e.target.value); setLibraryDisplayCount(4) }}
+          className="bg-white h-10"
         />
         {wantToRead.length === 0 ? (
           <p className="text-muted-foreground text-sm">No books yet — add one above.</p>
@@ -735,9 +746,9 @@ export default function App() {
                                 )}
                               </div>
                             </div>
-                            <div className="flex gap-6 pt-4">
-                              <Button variant="outline" onClick={() => handleEditStart(book)} className="flex-1 text-xs">Edit</Button>
-                              <Button variant="outline" onClick={() => handleMarkRead(book.id)} className="flex-1 text-xs">Mark read</Button>
+                            <div className="flex gap-2 pt-4">
+                              <Button onClick={() => handleMarkRead(book.id)} className="flex-[4] gap-1.5"><BookCheck size={15} />Mark read</Button>
+                              <Button variant="outline" onClick={() => handleEditStart(book)} className="flex-1 gap-1.5"><Pencil size={13} />Edit</Button>
                             </div>
                           </>
                         )}
@@ -750,7 +761,7 @@ export default function App() {
             {groupBy === "none" && filteredWantToRead.length > libraryDisplayCount && (
               <Button
                 variant="outline"
-                className="w-full text-sm"
+                className="w-full text-sm bg-white"
                 onClick={() => setLibraryDisplayCount((n) => n + 4)}
               >
                 Show {Math.min(4, filteredWantToRead.length - libraryDisplayCount)} more books
@@ -775,6 +786,7 @@ export default function App() {
                   placeholder="Search by title, author or genre…"
                   value={readSearch}
                   onChange={(e) => setReadSearch(e.target.value)}
+                  className="bg-white h-10"
                 />
                 {filteredRead.length === 0 ? (
                   <p className="text-muted-foreground text-sm">No books match your search.</p>
@@ -805,9 +817,9 @@ export default function App() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex gap-6 pt-4">
-                                <Button variant="outline" onClick={() => handleMoveToWantToRead(book.id)} className="flex-1 text-xs">Re-read</Button>
-                                <Button variant="outline" onClick={() => handleEditStart(book)} className="flex-1 text-xs">Edit</Button>
+                              <div className="flex gap-2 pt-4">
+                                <Button variant="secondary" onClick={() => handleEditStart(book)} className="flex-[4] gap-1.5 shadow-sm"><Pencil size={13} />Edit</Button>
+                                <Button variant="outline" onClick={() => handleMoveToWantToRead(book.id)} className="flex-1 gap-1.5"><RotateCcw size={14} />Re-read</Button>
                               </div>
                             </>
                           )}
