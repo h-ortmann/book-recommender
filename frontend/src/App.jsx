@@ -786,10 +786,15 @@ export default function App() {
           <div className="pt-8 border-t">
             <button
               onClick={() => setReadSectionOpen((o) => !o)}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+              className="flex items-center justify-between w-full text-left"
             >
-              {readSectionOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              Already read ({allRead.length})
+              <h2 className="text-lg font-heading font-semibold">
+                Already read
+                <span className="text-muted-foreground font-normal text-base font-sans ml-2">
+                  ({allRead.length})
+                </span>
+              </h2>
+              {readSectionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {readSectionOpen && (
               <div className="space-y-4 mt-4">
