@@ -379,7 +379,7 @@ export default function App() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Tropes</p>
                 <div className="flex flex-wrap gap-1">
-                  {b.tropes.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                  {b.tropes.map((t) => <Badge key={t} variant="secondary" className="text-xs border-0" style={{ background: "linear-gradient(135deg, #F2B6B6, #F2A0C6)" }}>{t}</Badge>)}
                 </div>
               </div>
             )}
@@ -455,19 +455,19 @@ export default function App() {
 
       {/* Header */}
       <div className="border-b pb-8">
-        <div className="flex items-end justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="text-5xl font-heading font-bold tracking-tight">Shelf'd</h1>
           <p className="text-muted-foreground mt-2 text-2xl italic font-heading">Where your TBR finally meets its match.</p>
           <div className="flex flex-wrap gap-2 mt-3">
-            <div className="bg-white shadow-sm border border-primary rounded-lg px-3 py-1.5 text-sm font-medium">
+            <div className="shadow-sm rounded-lg px-3 py-1.5 text-sm font-medium" style={{ background: "linear-gradient(135deg, #F2B6B6, #F2A0C6)" }}>
               {books.length} books
             </div>
-            <div className="bg-white shadow-sm border border-primary rounded-lg px-3 py-1.5 text-sm font-medium">
+            <div className="shadow-sm rounded-lg px-3 py-1.5 text-sm font-medium" style={{ background: "linear-gradient(135deg, #F2B6B6, #F2A0C6)" }}>
               {wantToRead.length} to read
             </div>
             {currentlyReading.length > 0 && (
-              <div className="bg-white shadow-sm border border-primary rounded-lg px-3 py-1.5 text-sm font-medium">
+              <div className="shadow-sm rounded-lg px-3 py-1.5 text-sm font-medium" style={{ background: "linear-gradient(135deg, #F2B6B6, #F2A0C6)" }}>
                 {currentlyReading.length} in progress
               </div>
             )}
@@ -483,7 +483,7 @@ export default function App() {
           }
         }}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 w-full sm:w-auto">
               <Plus size={15} />
               Add a book
             </Button>
@@ -572,9 +572,9 @@ export default function App() {
       </div>
 
       {/* Recommendation panel */}
-      <div className="bg-accent border border-border rounded-xl p-8 space-y-6">
+      <div className="border rounded-xl p-8 space-y-6" style={{ background: "linear-gradient(160deg, #EEE7D2 0%, #D9B0CA 100%)", borderColor: "#D9B0CA" }}>
         <h2 className="text-xl font-heading font-semibold">What should I read next?</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Input
             placeholder="e.g. I'm travelling and want something light and fun"
             value={recommendContext}
@@ -588,7 +588,7 @@ export default function App() {
           <Button
             onClick={() => handleRecommend(excludedIds)}
             disabled={recommendLoading || !recommendContext || books.length === 0}
-            className="shrink-0"
+            className="sm:shrink-0 w-full sm:w-auto"
           >
             {recommendLoading ? "Thinking…" : "Recommend ✦"}
           </Button>
@@ -613,7 +613,7 @@ export default function App() {
               {streamingReason || "Finding out why…"}
             </p>
             <div className="flex gap-2">
-              <Button onClick={handleLetsReadThat} className="flex-[4] gap-1.5 bg-foreground text-background hover:bg-foreground/90 shadow-none">
+              <Button onClick={handleLetsReadThat} className="flex-[4] gap-1.5">
                 <BookCheck size={15} />Let's read that!
               </Button>
               <Button onClick={handleSuggestAnother} variant="outline" className="flex-1" disabled={recommendLoading}>
@@ -651,7 +651,7 @@ export default function App() {
                           {book.tropes?.length > 0 && (
                             <div className="flex flex-wrap gap-2 pt-2">
                               {book.tropes.slice(0, 3).map((t) => (
-                                <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                                <Badge key={t} variant="secondary" className="text-xs border-0" style={{ background: "linear-gradient(135deg, #F2B6B6, #F2A0C6)" }}>{t}</Badge>
                               ))}
                             </div>
                           )}
@@ -737,7 +737,7 @@ export default function App() {
                                 {book.tropes?.length > 0 && (
                                   <div className="flex flex-wrap gap-2 pt-2">
                                     {book.tropes.slice(0, 3).map((t) => (
-                                      <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                                      <Badge key={t} variant="secondary" className="text-xs border-0" style={{ background: "linear-gradient(135deg, #F2B6B6, #F2A0C6)" }}>{t}</Badge>
                                     ))}
                                   </div>
                                 )}
