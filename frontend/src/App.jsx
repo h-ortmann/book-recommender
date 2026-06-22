@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ChevronDown, ChevronUp, Plus, Trash2, Pencil, BookCheck, RotateCcw } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000"
 
@@ -593,11 +594,12 @@ export default function App() {
             {recommendLoading ? "Thinking…" : "Recommend ✦"}
           </Button>
         </div>
+        <AnimatePresence>
         {recommendation && !recommendation.error && (
-          <div className="pt-4 border-t space-y-4">
+          <motion.div key="rec-result" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.28 }} className="pt-4 border-t space-y-4">
             <div>
               <p className="font-heading font-semibold text-lg leading-snug">{recommendation.title}</p>
-              <p className="text-muted-foreground text-sm">by {recommendation.author}</p>
+              <p className="text-sm">by {recommendation.author}</p>
             </div>
             {(() => {
               const bookTropes = books.find((b) => b.id === recommendation.book_id)?.tropes
@@ -609,7 +611,7 @@ export default function App() {
                 </div>
               ) : null
             })()}
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm leading-relaxed">
               {streamingReason || "Finding out why…"}
             </p>
             <div className="flex gap-2">
@@ -620,8 +622,9 @@ export default function App() {
                 Suggest another
               </Button>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
         {recommendation?.error && (
           <p className="text-sm text-destructive">{recommendation.error}</p>
         )}
@@ -632,8 +635,10 @@ export default function App() {
         <div className="space-y-4">
           <h2 className="text-lg font-heading font-semibold">Currently reading</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <AnimatePresence>
             {currentlyReading.map((book) => (
-              <Card key={book.id} className="shadow-sm flex flex-col relative">
+              <motion.div key={book.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}>
+              <Card className="shadow-sm flex flex-col relative h-full">
                 {editingId !== book.id && (
                   <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(book.id) }} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer z-10"><Trash2 size={14} /></button>
                 )}
@@ -665,7 +670,9 @@ export default function App() {
                   )}
                 </CardContent>
               </Card>
+              </motion.div>
             ))}
+            </AnimatePresence>
           </div>
         </div>
       )}
@@ -716,8 +723,10 @@ export default function App() {
                   </p>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <AnimatePresence>
                   {groupBooks.map((book) => (
-                    <Card key={book.id} className="shadow-sm flex flex-col relative">
+                    <motion.div key={book.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}>
+                    <Card className="shadow-sm flex flex-col relative h-full">
                       {editingId !== book.id && (
                         <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(book.id) }} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer z-10"><Trash2 size={14} /></button>
                       )}
@@ -754,7 +763,9 @@ export default function App() {
                         )}
                       </CardContent>
                     </Card>
+                    </motion.div>
                   ))}
+                  </AnimatePresence>
                 </div>
               </div>
             ))}
@@ -792,8 +803,10 @@ export default function App() {
                   <p className="text-muted-foreground text-sm">No books match your search.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <AnimatePresence>
                     {filteredRead.map((book) => (
-                      <Card key={book.id} className="shadow-sm flex flex-col relative">
+                      <motion.div key={book.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}>
+                      <Card className="shadow-sm flex flex-col relative h-full">
                         {editingId !== book.id && (
                           <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(book.id) }} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer z-10"><Trash2 size={14} /></button>
                         )}
@@ -825,7 +838,9 @@ export default function App() {
                           )}
                         </CardContent>
                       </Card>
+                      </motion.div>
                     ))}
+                    </AnimatePresence>
                   </div>
                 )}
               </div>
